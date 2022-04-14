@@ -1,0 +1,118 @@
+#-------------------------------------------------------------------------------
+# Name:        module1
+# Purpose:
+#
+# Author:      Andrew Podobed
+#
+# Created:     14.04.2022
+# Copyright:   (c) Andrew Robinovich 2022
+# Licence:     Интеллектуальная собственность Андрея Подобеда. Использование
+#              и распространение (передача третьим лицам) без письменного
+#              разрешения автора запрещена.
+#-------------------------------------------------------------------------------
+import requests
+import csv
+import time
+import random
+import json
+from datetime import datetime
+
+def get_html(url):
+    r = requests.get(url)
+    if r.ok: #200
+        return r.json()
+    else:
+        print(r.status_code)
+
+def write_index_csv():
+    with open('onliner_18650_{}.csv', 'a') as f:  #'onliner_18650_{}.csv'
+        writer = csv.writer(f)
+        writer.writerow(['shop_id', 'importer', 'product_name', 'position_price', 'price_min', 'price_max', 'stock_status'])
+
+def write_csv(data):
+    with open('onliner_18650_{}.csv', 'a') as f:   #'onliner_18650_{}.csv'
+        writer = csv.writer(f)
+        writer.writerow([data['shop_id'], data['importer'], data['product_name'], data['position_price'], data['price_min'], data['price_max'], data['stock_status']])
+
+def get_page_data(html):
+    prod = html['products']
+
+    for product in prod:
+        product_name = product['extended_name']
+        product_name = product_name.replace('Аккумулятор', '')
+
+        try:
+            price_min = product['prices']['price_min']['amount']
+        except Exception:
+            price_min = 'Nan'
+
+        try:
+            price_max = product['prices']['price_max']['amount']
+        except Exception:
+            price_max = 'Nan'
+
+        try:
+            offers = str(product['prices']['offers']['count'])
+        except Exception:
+            offers = 'Nan'
+
+        try:
+            urls_product = product['prices']['url']
+        except Exception:
+            urls_product = 'Nan'
+
+        try:
+            product_url = requests.get(urls_product)
+        except Exception:
+            product_url = 'Nan'
+
+        try:
+            info_json = product_url.json()
+        except Exception:
+            info_json = 'Nan'
+
+        try:
+            info = info_json['positions']['primary']
+            shops = info_json['shops']
+        except Exception:
+            info = 'Nan'
+
+        try:
+            for item in info:
+                importer = item['importer']
+                position_price = item['position_price']['amount']
+                shop_id = str(item['shop_id'])
+                try:
+                    stock_status = item['stock_status']['text']
+                except Exception:
+                    stock_status = 'Nane'
+
+                print(shop_id + ' --- ' +importer + ' --- ' + product_name + ' --- ' + position_price + ' --- '\
+             + price_min + ' --- ' + price_max + ' --- '+ stock_status)
+
+                data = {'shop_id':shop_id, 'importer':importer, 'product_name':product_name, 'position_price':position_price,'price_min':price_min, 'price_max':price_max, 'stock_status':stock_status}
+
+                write_csv(data)
+        except Exception:
+            print('ERROR in "info" block')
+
+
+def main():
+    pattern = 'https://catalog.onliner.by/sdapi/catalog.api/search/battery?bat_type[0]=accum&bat_type[operation]=union&bat_size[0]=18650&bat_size[operation]=union&page=2&group=1&page={}'
+
+##    today_day = datetime.today().strftime('%Y-%m-%d-%H:%M')
+##    file_name = 'onliner_18650_{}.csv'
+##    file_name = file_name.format(today_day)
+
+    write_index_csv()
+
+
+    for i in range(1, 6):
+        url = pattern.format(str(i))
+
+        get_page_data(get_html(url))
+
+        time.sleep(random.randint(2, 3))
+
+if __name__ == '__main__':
+    main()
